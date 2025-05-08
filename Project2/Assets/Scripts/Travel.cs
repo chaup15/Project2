@@ -1,62 +1,51 @@
 using UnityEngine;
 using UnityEngine.XR.Hands;
+using UnityEngine.SubsystemsImplementation;
+using System.Collections.Generic;
 
-public class HandTravel : MonoBehaviour
+public class HandDirectionMover : MonoBehaviour
 {
-    [Header("References")]
-    [Tooltip("The Transform of your XR Rig (camera/rig root).")]
-    [SerializeField] private Transform xrRig;
+    XRHandSubsystem handSubsystem;
+    public float moveSpeed;
 
-    [Header("Movement Settings")]
-    [Tooltip("Speed in meters per second.")]
-    [SerializeField] private float movementSpeed = 1.0f;
-    [Tooltip("Max thumb–index distance (in meters) to register a pinch.")]
-    [SerializeField] private float pinchThreshold = 0.025f;
-
-    // XR Hands subsystem
-    private XRHandSubsystem handSubsystem;
-
-    private void OnEnable()
+    void Start()
     {
-        // Find and cache the hand-tracking subsystem
-        handSubsystem = XRGeneralSettings.Instance.Manager.activeLoader
-                         .GetLoadedSubsystem<XRHandSubsystem>();
-
-        if (handSubsystem != null)
-            handSubsystem.updatedHands += OnHandsUpdated;
-        else
-            Debug.LogWarning("No XRHandSubsystem found – make sure Hand Tracking is enabled in your XR plug-in settings.");
-    }
-
-    private void OnDisable()
-    {
-        if (handSubsystem != null)
-            handSubsystem.updatedHands -= OnHandsUpdated;
-    }
-
-    private void OnHandsUpdated(XRHandSubsystem subsystem)
-    {
-        // Grab the left hand
-        var left = handSubsystem.leftHand;
-
-        // Try get the needed joints
-        if (   left.TryGetJoint(XRHandJointID.IndexTip,      out var tip)
-            && left.TryGetJoint(XRHandJointID.ThumbTip,      out var thumb)
-            && left.TryGetJoint(XRHandJointID.IndexMetacarpal, out var meta))
+        var subsystems = new List<XRHandSubsystem>();
+        SubsystemManager.GetInstances(subsystems);
+        if (subsystems.Count > 0)
         {
-            // Measure thumb–index distance
-            float dist = Vector3.Distance(tip.pose.position, thumb.pose.position);
-
-            // If pinched, move along pointing direction
-            if (dist < pinchThreshold)
-                PerformMove(tip.pose.position, meta.pose.position);
+            handSubsystem = subsystems[0];
         }
     }
 
-    private void PerformMove(Vector3 tipPos, Vector3 metaPos)
+    void Update()
     {
-        // Direction from metacarpal to tip = finger pointing
-        Vector3 dir = (tipPos - metaPos).normalized;
-        xrRig.position += dir * movementSpeed * Time.deltaTime;
+        if (handSubsystem == null || !handSubsystem.running)
+            return;
+
+        XRHand rightHand = handSubsystem.rightHand;
+
+        if (!rightHand.isTracked)
+            return;
+
+        var tipJoint = rightHand.GetJoint(XRHandJointID.IndexTip);
+        var knuckleJoint = rightHand.GetJoint(XRHandJointID.IndexProximal);
+
+        Vector3 tip = new Vector3();
+        Vector3 knuckle = new Vector3();
+
+        if (tipJoint.TryGetPose(out Pose pose1) && knuckleJoint.TryGetPose(out Pose pose2))
+        {
+            tip = pose1.position;
+            knuckle = pose2.position;
+        }
+
+        if ((tipJoint.trackingState & XRHandJointTrackingState.Pose) == 0
+           || (knuckleJoint.trackingState & XRHandJointTrackingState.Pose) == 0)
+           return;
+
+        Vector3 direction = (tip - knuckle).normalized;
+
+        transform.position += direction * moveSpeed * Time.deltaTime;
     }
 }
