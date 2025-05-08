@@ -8,6 +8,8 @@ public class Travel : MonoBehaviour
     XRHandSubsystem handSubsystem;
     public XROrigin xrOrigin;
     public float moveSpeed = 1f;
+    Timer timer;
+    [SerializeField] GameObject canvas;
 
     void Start()
     {
@@ -23,21 +25,30 @@ public class Travel : MonoBehaviour
 
         if (xrOrigin == null)
             xrOrigin = FindObjectOfType<XROrigin>();
+
+        timer = canvas.GetComponent<Timer>();
     }
 
     void Update()
     {
-        if (handSubsystem == null || !handSubsystem.running) return;
-        var left = handSubsystem.leftHand;
-        if (!left.isTracked) return;
-
-        if (TryGetJointPose(left, XRHandJointID.IndexTip,     out var tipPose) &&
-            TryGetJointPose(left, XRHandJointID.IndexProximal, out var proxPose))
+        if(timer.canMove)
         {
-            var raw = -(tipPose.position - proxPose.position);
-            raw.y *= -1f;
-            Vector3 dir = raw.normalized;
-            transform.position += dir * moveSpeed * Time.deltaTime;
+            if (handSubsystem == null || !handSubsystem.running) return;
+            var left = handSubsystem.leftHand;
+            if (!left.isTracked) return;
+
+            if (TryGetJointPose(left, XRHandJointID.IndexTip, out var tipPose) &&
+                TryGetJointPose(left, XRHandJointID.IndexProximal, out var proxPose))
+            {
+                var raw = tipPose.position - proxPose.position;
+
+                Vector3 horiz = new Vector3(raw.x, 0, raw.z).normalized;
+
+                Vector3 vert = new Vector3(0, raw.y, 0).normalized;
+
+                xrOrigin.transform.position += (-horiz * moveSpeed + vert * moveSpeed) * Time.deltaTime;
+
+            }
         }
     }
 

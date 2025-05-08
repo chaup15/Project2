@@ -22,6 +22,8 @@ public class Parse : MonoBehaviour
 
         line.startWidth = 0.1f;
         line.endWidth = 0.1f;
+        line.startColor = Color.yellow;
+        line.endColor = Color.yellow;
         line.positionCount = pointsPos.Count;
 
         for(int i = 0; i < pointsPos.Count; i++)
