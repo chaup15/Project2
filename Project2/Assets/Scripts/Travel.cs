@@ -25,14 +25,14 @@ public class Travel : MonoBehaviour
 
     private void OnEnable()
     {
-        pinchAction.action.started  += OnPinchStarted;
+        pinchAction.action.performed  += OnPinchStarted;
         pinchAction.action.canceled += OnPinchCanceled;
         pinchAction.action.Enable();
     }
 
     private void OnDisable()
     {
-        pinchAction.action.started  -= OnPinchStarted;
+        pinchAction.action.performed  -= OnPinchStarted;
         pinchAction.action.canceled -= OnPinchCanceled;
         pinchAction.action.Disable();
     }
