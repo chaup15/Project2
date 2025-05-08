@@ -34,14 +34,10 @@ public class Travel : MonoBehaviour
         if (TryGetJointPose(left, XRHandJointID.IndexTip,     out var tipPose) &&
             TryGetJointPose(left, XRHandJointID.IndexProximal, out var proxPose))
         {
-            var raw = tipPose.position - proxPose.position;
-
-            Vector3 horiz = new Vector3(raw.x, 0, raw.z).normalized;
-
-            float vert = -raw.y;
-
-            xrOrigin.transform.position += (horiz * moveSpeed + Vector3.up * vert * moveSpeed) * Time.deltaTime;
-
+            var raw = -(tipPose.position - proxPose.position);
+            raw.y *= -1f;
+            Vector3 dir = raw.normalized;
+            transform.position += dir * moveSpeed * Time.deltaTime;
         }
     }
 
