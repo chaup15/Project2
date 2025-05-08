@@ -44,16 +44,30 @@ public class Travel : MonoBehaviour
                 Vector3 rawDir = raw.normalized;
 
                 Vector3 horizDir = new Vector3(rawDir.x, 0f, rawDir.z);
+
                 if (horizDir.sqrMagnitude > 0.001f)
                     horizDir = horizDir.normalized;
                 else
                     horizDir = Vector3.zero;
 
-                const float upThreshold = 0.2f;
-                float upDot = Vector3.Dot(rawDir, Vector3.up);
-                Vector3 vertDir = upDot > upThreshold ? Vector3.up * (upDot - upThreshold) : Vector3.zero;
+                const float deadZone = 0.2f;
+                float upDot   = Vector3.Dot(rawDir, Vector3.up);
 
-                Vector3 movement = horizDir + vertDir;
+                Vector3 vertDir;
+                if (upDot > deadZone) {
+                    // upward
+                    vertDir = Vector3.up * (upDot - deadZone);
+                }
+                else if (upDot < -deadZone) {
+                    // downward
+                    vertDir = Vector3.down * ((-upDot) - deadZone);
+                }
+                else {
+                    // dead zone
+                    vertDir = Vector3.zero;
+                }
+
+                Vector3 movement = -(horizDir) + vertDir;
                 xrOrigin.transform.position += movement * moveSpeed * Time.deltaTime;
                 // var raw = tipPose.position - proxPose.position;
 
