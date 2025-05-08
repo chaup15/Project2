@@ -1,18 +1,14 @@
-using UnityEngine;
-using UnityEngine.InputSystem;
+using UnityEngine.XR;
 using UnityEngine.XR.Hands;
+using UnityEngine.Subsystems;
 
 public class Travel : MonoBehaviour
 {
-    [Header("Gesture & Hand")]
-    [SerializeField] InputActionReference pinchAction;
-    [SerializeField] XRHandSubsystem   handSubsystem;
-    [SerializeField] XRNode            handNode       = XRNode.LeftHand;
-
-    [Header("Rig & Motion")]
+    [SerializeField] XRHandSubsystem handSubsystem;
+    [SerializeField] XRNode            handNode = XRNode.LeftHand;
     [SerializeField] Transform         xrRig;
-    [SerializeField] float             movementSpeed  = 10f;
-    [SerializeField] float             smoothing      = 5f;
+    [SerializeField] float             movementSpeed = 10f;
+    [SerializeField] float             smoothing     = 5f;
 
     private bool isPinching = false;
 
@@ -38,14 +34,19 @@ public class Travel : MonoBehaviour
 
     void Move()
     {
-        // 1) Get the index‑tip joint pose
-        if (!handSubsystem.TryGetHand(handNode, out XRHand hand)) return;
-        if (!hand.TryGetJoint(XRHandJointID.IndexTip, out HandJoint tip)) return;
+        XRHand hand = handNode == XRNode.LeftHand
+            ? handSubsystem.leftHand 
+            : handSubsystem.rightHand;
 
-        // 2) Direction = index‑tip’s forward in world‑space
-        Vector3 dir = tip.pose.forward.normalized;
+        // Make sure it’s actually being tracked
+        if (!hand.isTracked) return;
 
-        // 3) Compute smooth target
+        // Grab the index‐tip joint
+        XRHandJoint tipJoint = hand.GetJoint(XRHandJointID.IndexTip);
+        if (!tipJoint.TryGetPose(out Pose tipPose)) return;
+
+        // Move the rig along the tip’s forward direction
+        Vector3 dir    = tipPose.forward.normalized;
         Vector3 target = xrRig.position + dir * movementSpeed * Time.deltaTime;
         xrRig.position = Vector3.Lerp(xrRig.position, target, smoothing * Time.deltaTime);
 
