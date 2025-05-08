@@ -1,56 +1,62 @@
-using UnityEngine.XR;
-using UnityEngine.XR.Hands;
-using UnityEngine.Subsystems;
+using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class Travel : MonoBehaviour
 {
-    [SerializeField] XRHandSubsystem handSubsystem;
-    [SerializeField] XRNode            handNode = XRNode.LeftHand;
-    [SerializeField] Transform         xrRig;
-    [SerializeField] float             movementSpeed = 10f;
-    [SerializeField] float             smoothing     = 5f;
+    [Header("Gesture Input")]
+    [Tooltip("Bind this to your pinch/grip InputAction (e.g. XRController Pinch).")]
+    [SerializeField] private InputActionReference pinchAction;
 
-    private bool isPinching = false;
+    [Header("References")]
+    [Tooltip("Drag in the IndexTip joint Transform from your XR Hand Skeleton Driver.")]
+    [SerializeField] private Transform indexTip;
 
-    void OnEnable()
+    [Tooltip("Your XR Rig root Transform (the thing you want to move).")]
+    [SerializeField] private Transform xrRig;
+
+    [Header("Movement Settings")]
+    [Tooltip("World‐space units per second.")]
+    [SerializeField] private float movementSpeed = 10f;
+
+    [Tooltip("Higher = snappier; Lower = more glide.")]
+    [SerializeField] private float smoothing = 5f;
+
+    private bool isPinching;
+
+    private void OnEnable()
     {
-        pinchAction.action.started  += _ => isPinching = true;
-        pinchAction.action.canceled += _ => isPinching = false;
+        pinchAction.action.started  += OnPinchStarted;
+        pinchAction.action.canceled += OnPinchCanceled;
         pinchAction.action.Enable();
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
-        pinchAction.action.started  -= _ => isPinching = true;
-        pinchAction.action.canceled -= _ => isPinching = false;
+        pinchAction.action.started  -= OnPinchStarted;
+        pinchAction.action.canceled -= OnPinchCanceled;
         pinchAction.action.Disable();
     }
 
-    void Update()
+    private void OnPinchStarted(InputAction.CallbackContext ctx)
     {
-        if (isPinching)
-            Move();
+        isPinching = true;
     }
 
-    void Move()
+    private void OnPinchCanceled(InputAction.CallbackContext ctx)
     {
-        XRHand hand = handNode == XRNode.LeftHand
-            ? handSubsystem.leftHand 
-            : handSubsystem.rightHand;
+        isPinching = false;
+    }
 
-        // Make sure it’s actually being tracked
-        if (!hand.isTracked) return;
+    private void Update()
+    {
+        if (!isPinching || indexTip == null || xrRig == null)
+            return;
 
-        // Grab the index‐tip joint
-        XRHandJoint tipJoint = hand.GetJoint(XRHandJointID.IndexTip);
-        if (!tipJoint.TryGetPose(out Pose tipPose)) return;
+        // 1) Compute target direction from the index‑tip
+        Vector3 dir = indexTip.forward.normalized;
 
-        // Move the rig along the tip’s forward direction
-        Vector3 dir    = tipPose.forward.normalized;
-        Vector3 target = xrRig.position + dir * movementSpeed * Time.deltaTime;
-        xrRig.position = Vector3.Lerp(xrRig.position, target, smoothing * Time.deltaTime);
-
-        // 4) Debug
-        Debug.Log($"[Travel] Moving along index tip – dir: {dir}");
+        // 2) Compute smoothed new position
+        Vector3 desiredPos = xrRig.position + dir * movementSpeed * Time.deltaTime;
+        xrRig.position = Vector3.Lerp(xrRig.position, desiredPos, smoothing * Time.deltaTime);
     }
 }
