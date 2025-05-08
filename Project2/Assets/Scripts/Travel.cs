@@ -1,20 +1,29 @@
 using UnityEngine;
 using UnityEngine.XR.Hands;
-using UnityEngine.SubsystemsImplementation;
+using UnityEngine.SubsystemManagement;
 using System.Collections.Generic;
 
-public class HandDirectionMover : MonoBehaviour
+public class Travel : MonoBehaviour
 {
     XRHandSubsystem handSubsystem;
-    public float moveSpeed;
+    [Tooltip("Units per second in hand-forward direction")]
+    public float moveSpeed = 1f;
 
     void Start()
     {
+        // fetch any available hand‐tracking subsystem
         var subsystems = new List<XRHandSubsystem>();
-        SubsystemManager.GetInstances(subsystems);
+        SubsystemManager.GetSubsystems<XRHandSubsystem>(subsystems);
+
         if (subsystems.Count > 0)
         {
             handSubsystem = subsystems[0];
+            if (!handSubsystem.running)
+                handSubsystem.Start();
+        }
+        else
+        {
+            Debug.LogError("XRHandSubsystem not found! Make sure 'XR Hands' is installed and Hand Tracking is enabled in your OpenXR settings.");
         }
     }
 
@@ -23,29 +32,33 @@ public class HandDirectionMover : MonoBehaviour
         if (handSubsystem == null || !handSubsystem.running)
             return;
 
-        XRHand rightHand = handSubsystem.rightHand;
-
-        if (!rightHand.isTracked)
+        var right = handSubsystem.rightHand;
+        if (!right.isTracked)
             return;
 
-        var tipJoint = rightHand.GetJoint(XRHandJointID.IndexTip);
-        var knuckleJoint = rightHand.GetJoint(XRHandJointID.IndexProximal);
-
-        Vector3 tip = new Vector3();
-        Vector3 knuckle = new Vector3();
-
-        if (tipJoint.TryGetPose(out Pose pose1) && knuckleJoint.TryGetPose(out Pose pose2))
+        // get two joints
+        if (TryGetJointPose(right, XRHandJointID.IndexTip, out var tipPose) &&
+            TryGetJointPose(right, XRHandJointID.IndexProximal, out var proxPose))
         {
-            tip = pose1.position;
-            knuckle = pose2.position;
+            Vector3 tip     = tipPose.position;
+            Vector3 knuckle = proxPose.position;
+
+            // direction = finger extension
+            Vector3 dir = (tip - knuckle).normalized;
+            transform.position += dir * moveSpeed * Time.deltaTime;
         }
+    }
 
-        if ((tipJoint.trackingState & XRHandJointTrackingState.Pose) == 0
-           || (knuckleJoint.trackingState & XRHandJointTrackingState.Pose) == 0)
-           return;
-
-        Vector3 direction = (tip - knuckle).normalized;
-
-        transform.position += direction * moveSpeed * Time.deltaTime;
+    bool TryGetJointPose(XRHand hand, XRHandJointID id, out Pose pose)
+    {
+        var joint = hand.GetJoint(id);
+        // ensure we have a valid pose and tracking
+        if ((joint.trackingState & XRHandJointTrackingState.Pose) != 0
+            && joint.TryGetPose(out pose))
+        {
+            return true;
+        }
+        pose = default;
+        return false;
     }
 }
