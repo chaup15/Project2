@@ -64,7 +64,6 @@ public class Travel : MonoBehaviour
                     vertDir = Vector3.down * ((-upDot) - deadZone);
                 }
                 else {
-                    // dead zone
                     vertDir = Vector3.zero;
                 }
 
@@ -81,9 +80,9 @@ public class Travel : MonoBehaviour
                     headFw.Normalize();
 
                     // dot > deadZoneX drives acceleration
-                    const float deadZoneX      = 0.2f;
-                    const float accelGain      = 3f;
-                    float forwardDot           = Vector3.Dot(hDirR, headFw);
+                    const float deadZoneX = 0.2f;
+                    const float accelGain = 50f;
+                    float forwardDot = Vector3.Dot(hDirR, headFw);
 
                     if (forwardDot > deadZoneX)
                         speedMultiplier += (forwardDot - deadZoneX) * accelGain;
@@ -91,6 +90,10 @@ public class Travel : MonoBehaviour
                         speedMultiplier += (forwardDot + deadZoneX) * accelGain; 
                 }
                 float currentSpeed = moveSpeed * speedMultiplier;
+                // Debug.Log("cur speed: " + currentSpeed);
+                if (currentSpeed < 2){
+                    currentSpeed = 0f;
+                }
                 xrOrigin.transform.position += movement * currentSpeed * Time.deltaTime;
             }
         }

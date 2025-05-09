@@ -8,11 +8,13 @@ public class Parse : MonoBehaviour
     public GameObject checkpoint;
     public Transform xrRig;
     private LineRenderer line;
+
+    public List<Vector3> pointsPos;
     
     // Start is called before the first frame update
     void Start()
     {
-        List<Vector3> pointsPos = ParseFile();
+        pointsPos = ParseFile();
 
         line = GetComponent<LineRenderer>();
         if (line == null)
@@ -22,13 +24,11 @@ public class Parse : MonoBehaviour
 
         line.startWidth = 0.1f;
         line.endWidth = 0.1f;
-        line.startColor = Color.yellow;
-        line.endColor = Color.yellow;
         line.positionCount = pointsPos.Count;
+        line.material = new Material(Shader.Find("Sprites/Default"));
 
         for(int i = 0; i < pointsPos.Count; i++)
         {
-            Debug.Log(pointsPos[i]);
             line.SetPosition(i, pointsPos[i]);
             GameObject cp = Instantiate(checkpoint, pointsPos[i], Quaternion.identity);
             Renderer rend = cp.GetComponent<Renderer>();
@@ -46,7 +46,9 @@ public class Parse : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        line.enabled = true;
+        line.startColor = Color.white;
+        line.endColor = Color.white;
     }
 
     List<Vector3> ParseFile()
