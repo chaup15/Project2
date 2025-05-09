@@ -70,60 +70,28 @@ public class Travel : MonoBehaviour
 
                 Vector3 movement = -(horizDir) + vertDir;
 
-                float speedMultiplier = 1f;
-                if (right.isTracked)
+                float speedMultiplier = 2.5f;
+                if ( right.isTracked && TryGetJointPose(right, XRHandJointID.IndexTip, out var tipR) && TryGetJointPose(right, XRHandJointID.IndexProximal, out var proxR))
                 {
-                    // a) get wrist position
-                    if (TryGetJointPose(right, XRHandJointID.Wrist, out var wristPose))
-                    {
-                        Vector3 wristPos = wristPose.position;
+                    Vector3 rawR = tipR.position - proxR.position;
+                    Vector3 hDirR = Vector3.ProjectOnPlane(rawR.normalized, Vector3.up);
 
-                        // b) list of fingertip joints to sample
-                        XRHandJointID[] tips = {
-                            XRHandJointID.IndexTip,
-                            XRHandJointID.MiddleTip,
-                            XRHandJointID.RingTip,
-                            XRHandJointID.LittleTip,
-                            XRHandJointID.ThumbTip
-                        };
+                    Vector3 headFw = Camera.main.transform.forward;
+                    headFw.y = 0f;
+                    headFw.Normalize();
 
-                        float totalDist = 0f;
-                        int   sampleCnt = 0;
-                        foreach (var id in tips)
-                        {
-                            var joint = right.GetJoint(id);
-                            if ((joint.trackingState & XRHandJointTrackingState.Pose) != 0
-                                && joint.TryGetPose(out var tipPose))
-                            {
-                                totalDist += Vector3.Distance(tipPose.position, wristPos);
-                                sampleCnt++;
-                            }
-                        }
+                    // dot > deadZoneX drives acceleration
+                    const float deadZoneX      = 0.2f;
+                    const float accelGain      = 3f;
+                    float forwardDot           = Vector3.Dot(hDirR, headFw);
 
-                        if (sampleCnt > 0)
-                        {
-                            float avgDist = totalDist / sampleCnt;
-
-                            // c) calibrate closed vs open distances (you may need to tweak these)
-                            const float closedDist = 0.02f;  // average fingertip–wrist when making a fist
-                            const float openDist   = 0.10f;  // average when hand fully splayed
-
-                            // d) normalize and clamp to [0,1]
-                            speedMultiplier = Mathf.InverseLerp(closedDist, openDist, avgDist);
-                        }
-                    }
+                    if (forwardDot > deadZoneX)
+                        speedMultiplier += (forwardDot - deadZoneX) * accelGain;
+                    else if (forwardDot < -deadZoneX)
+                        speedMultiplier += (forwardDot + deadZoneX) * accelGain; 
                 }
-
                 float currentSpeed = moveSpeed * speedMultiplier;
                 xrOrigin.transform.position += movement * currentSpeed * Time.deltaTime;
-                // var raw = tipPose.position - proxPose.position;
-
-                // Vector3 horiz = new Vector3(raw.x, 0, raw.z).normalized;
-
-                // Vector3 vert = new Vector3(0, raw.y, 0).normalized;
-
-                // xrOrigin.transform.position += (-horiz * moveSpeed + vert * moveSpeed) * Time.deltaTime;
-
             }
         }
     }
