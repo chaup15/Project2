@@ -35,6 +35,7 @@ public class Travel : MonoBehaviour
         {
             if (handSubsystem == null || !handSubsystem.running) return;
             var left = handSubsystem.leftHand;
+            var right = handSubsystem.rightHand;
             if (!left.isTracked) return;
 
             if (TryGetJointPose(left, XRHandJointID.IndexTip, out var tipPose) &&
@@ -68,7 +69,53 @@ public class Travel : MonoBehaviour
                 }
 
                 Vector3 movement = -(horizDir) + vertDir;
-                xrOrigin.transform.position += movement * moveSpeed * Time.deltaTime;
+
+                float speedMultiplier = 1f;
+                if (right.isTracked)
+                {
+                    // a) get wrist position
+                    if (TryGetJointPose(right, XRHandJointID.Wrist, out var wristPose))
+                    {
+                        Vector3 wristPos = wristPose.position;
+
+                        // b) list of fingertip joints to sample
+                        XRHandJointID[] tips = {
+                            XRHandJointID.IndexTip,
+                            XRHandJointID.MiddleTip,
+                            XRHandJointID.RingTip,
+                            XRHandJointID.LittleTip,
+                            XRHandJointID.ThumbTip
+                        };
+
+                        float totalDist = 0f;
+                        int   sampleCnt = 0;
+                        foreach (var id in tips)
+                        {
+                            var joint = right.GetJoint(id);
+                            if ((joint.trackingState & XRHandJointTrackingState.Pose) != 0
+                                && joint.TryGetPose(out var tipPose))
+                            {
+                                totalDist += Vector3.Distance(tipPose.position, wristPos);
+                                sampleCnt++;
+                            }
+                        }
+
+                        if (sampleCnt > 0)
+                        {
+                            float avgDist = totalDist / sampleCnt;
+
+                            // c) calibrate closed vs open distances (you may need to tweak these)
+                            const float closedDist = 0.02f;  // average fingertip–wrist when making a fist
+                            const float openDist   = 0.10f;  // average when hand fully splayed
+
+                            // d) normalize and clamp to [0,1]
+                            speedMultiplier = Mathf.InverseLerp(closedDist, openDist, avgDist);
+                        }
+                    }
+                }
+
+                float currentSpeed = moveSpeed * speedMultiplier;
+                xrOrigin.transform.position += movement * currentSpeed * Time.deltaTime;
                 // var raw = tipPose.position - proxPose.position;
 
                 // Vector3 horiz = new Vector3(raw.x, 0, raw.z).normalized;
